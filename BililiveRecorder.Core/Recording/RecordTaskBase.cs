@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
@@ -92,7 +93,8 @@ namespace BililiveRecorder.Core.Recording
 
             var (fullUrl, qn) = await this.FetchStreamUrlAsync(this.room.RoomConfig.RoomId).ConfigureAwait(false);
 
-            this.streamHost = new Uri(fullUrl).Host;
+            var uri = new Uri(fullUrl);
+            this.streamHost = uri.Host;
             var qnDesc = qn switch
             {
                 20000 => "4K",
@@ -106,6 +108,18 @@ namespace BililiveRecorder.Core.Recording
             };
             this.logger.Information("连接直播服务器 {Host} 录制画质 {Qn} ({QnDescription})", this.streamHost, qn, qnDesc);
             this.logger.Debug("直播流地址 {Url}", fullUrl);
+
+            if (Regex.IsMatch(uri.Host, @"^cn-.+\.bilivideo\.com$"))
+            {
+                var b = new UriBuilder(fullUrl)
+                {
+                    Scheme = "https",
+                    Host = @"d1--cn-gotcha01.bilivideo.com",
+                    Port = 443
+                };
+                fullUrl = b.ToString();
+                this.logger.Information("魔改直播流地址到 {Url}", fullUrl);
+            }
 
             var stream = await this.GetStreamAsync(fullUrl: fullUrl, timeout: (int)this.room.RoomConfig.TimingStreamConnect).ConfigureAwait(false);
 
